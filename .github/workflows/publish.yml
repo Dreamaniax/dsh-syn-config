@@ -1,0 +1,71 @@
+name: Publish
+
+# Tag-driven release. The public repository is a single-commit snapshot per
+# version, so this workflow lives in the snapshot and is triggered by the tag
+# that scripts/release-public.sh pushes. Nothing is published by hand.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run every gate and pack the tarball, but do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No registry-url on purpose: setup-node would write an .npmrc with an
+      # empty _authToken, and npm must instead use the OIDC trusted publisher.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Tag must match package.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          node -e "const t=process.env.GITHUB_REF_NAME.replace(/^v/,'');const v=require('./package.json').version;if(t!==v){console.error('tag '+t+' does not match version '+v);process.exit(1)};console.log('tag matches version '+v)"
+
+      - name: Unit tests
+        run: node --test
+
+      - name: Release hygiene gate
+        run: node scripts/publish-check.mjs --deep
+
+      - name: Packaging smoke test
+        run: node scripts/pack-smoke.mjs
+
+      - name: Show the publish toolchain
+        if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
+        run: |
+          node --version
+          npm --version
+          npm config get registry
+          env | grep -E '^(ACTIONS_ID_TOKEN|GITHUB_)' | sed -E 's/=.*/=<set>/' | sort
+
+      - name: Publish to npm with provenance
+        if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
+        run: npm publish --provenance --access public --loglevel verbose
+
+      - name: GitHub release with the exact tarball
+        if: startsWith(github.ref, 'refs/tags/') && inputs.dry_run != true
+        run: |
+          TARBALL=$(npm pack --silent | tail -1)
+          cp "$TARBALL" dsh-syn-config.tgz
+          gh release create "$GITHUB_REF_NAME" --title "dsh-syn-config ${GITHUB_REF_NAME#v}" --generate-notes "./$TARBALL" dsh-syn-config.tgz
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Summary
+        run: |
+          echo "### dsh-syn-config ${GITHUB_REF_NAME:-dry run}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- provenance: $( [ "${GITHUB_REF_TYPE}" = tag ] && [ "${{ inputs.dry_run }}" != "true" ] && echo published || echo dry-run )" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tests: unit + gate + pack smoke" >> "$GITHUB_STEP_SUMMARY"
