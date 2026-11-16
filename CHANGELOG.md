@@ -1,0 +1,59 @@
+# Changelog
+
+## 0.8.14 — 2026-11-16
+
+- Profile snapshots keep machine-local DSH home paths portable: `pack` rewrites
+  `<dshHome>/...` to `__DSH_HOME__/...` before writing the repository, and `doctor`
+  expands the placeholder before comparing live and repository copies. The
+  configuration repository no longer receives `/Users/<name>` paths that break
+  `apply` on another machine, and the corresponding false “2-line drift” warning
+  is gone.
+- Tests cover the placeholder round-trip in both `pack` and the doctor comparison.
+
+## 0.8.13 — 2026-11-16
+
+- Placeholder audit no longer mistakes MCP tool ids such as `mcp__notion__API-post-search` for
+  `__KEY__` placeholders, so the profile section stops blocking on a comment.
+- The skill audit ignores `_`-prefixed resource directories (`_shared/` and friends); they are shared
+  content for several skills and intentionally ship without `SKILL.md`.
+
+## 0.8.12 — 2026-11-15
+
+- `push` now mirrors `~/.dsh/learning/scripts` into `weekly/` as well. Pull already restored it, so a
+  machine-local edit to the weekly pipeline used to stay on that machine forever; the two directions
+  now describe the same repository.
+- `.dsh-market/` is uploaded by default, matching `scripts/pack.sh`; only `log.ndjson` stays local and
+  `include_market: false` still opts out. `pull` restores the market state and never copies the log.
+- Upload-scope tests cover both directions; the suite is at 103 tests.
+
+## 0.8.11 — 2026-11-13
+
+- Release assets now include a stable `dsh-syn-config.tgz` next to the versioned tarball, so catalog
+  entries and install instructions can point at `releases/latest/download/` without going stale.
+- Privacy and security pass before release: tracked tree, full history, npm tarball, public snapshot,
+  configuration repository and deployed profile all re-scanned; no plaintext credentials, personal
+  paths or private repository identifiers found.
+
+## 0.8.10 — 2026-11-12
+
+- The bundled skill is model-only (`userInvocable: false`); `/syn-dsh` is the single slash entry.
+- CI runs on ubuntu, macos-15 and windows across Node 20 and 22; releases are tag-driven, publish
+  with npm provenance and create the GitHub release themselves.
+
+## 0.8.9 — 2026-11-12
+
+- Packaging smoke test (pack → unpack → import outside the checkout → icon contract).
+- `publish-check --deep` reports private tokens in old commits.
+
+## 0.8.8 — 2026-11-12
+
+- Release page rewritten for users, in English and Chinese.
+- `docs/ROADMAP.md` separates long-term necessities from nice-to-haves.
+
+## 0.8.7 — 2026-11-12
+
+- Privacy pass: tree gate unchanged, history reported, module docs renamed to the shipping package.
+
+## 0.8.6 — 2026-11-12
+
+- `icon` in the package manifest, so the host renders the shipped artwork on the plugin card.
